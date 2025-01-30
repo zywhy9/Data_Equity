@@ -1,0 +1,70 @@
+---
+title: "World Population Calculation"
+author: "Yi Ren"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/CSV_FILES/WPP2024_Demographic_Indicators_Medium.csv.gz
+data = read.csv('Population.csv')
+```
+
+```{r}
+library(dplyr)
+
+dt = data |> filter(Time == 2024) |> select(LocID, Location, TPopulation1Jan, TPopulation1July)
+
+library(dplyr)
+
+get_population <- function(countries, data) {
+  data |> 
+    filter(Location %in% countries) |> 
+    summarize(Population = sum(TPopulation1July, na.rm = TRUE)) |> 
+    pull(Population)
+}
+```
+
+```{r}
+US = get_population(c("United States of America", "United States Virgin Islands", "Puerto Rico"), dt)
+
+UK = get_population(c("United Kingdom"), dt)
+
+NA_without_US = get_population(c("Greenland", "Canada", "Mexico"),dt)
+
+# exclude Kazakhstan, Kyrgyzstan, Uzbekistan
+EU_without_UK = get_population(c("Andorra", "Austria", "Belgium", "Albania", "Estonia", "Latvia", "Lithuania", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia", "Hungary", "	
+Kosovo (under UNSC res. 1244)", "Republic of Moldova", "Montenegro", "Poland", "Belarus", "North Macedonia", "Romania", "Serbia", "Slovakia", "Slovenia", "Ukraine", "France", "Germany", "Gibraltar", "Greece", "Liechtenstein", "Luxembourg", "Cyprus", "Malta", "Monaco", "Netherlands (and dependencies)", "Portugal", "San Marino", "Ireland", "Italy", "Denmark", "Finland", "Iceland", "Norway", "Sweden", "Spain", "Switzerland", "Armenia", "Azerbaijan", "Georgia", "Vatican City", "Russian Federation"),dt)
+
+Africa = get_population(c("Cameroon", "Central African Republic", "Chad", "Congo", "Democratic Republic of the Congo", "Equatorial Guinea", "Gabon", "Rwanda", "Sao Tome and Principe", "Burundi", "Comoros", "Djibouti", "Eritrea", "Ethiopia", "Kenya", "Madagascar", "Seychelles", "Somalia", "South Sudan", "Sudan", "United Republic of Tanzania", "Uganda", "Angola", "Botswana", "Eswatini", "Lesotho", "Malawi", "Mozambique", "Namibia", "South Africa", "Zambia", "Zimbabwe", "Benin", "Burkina Faso", "Cabo Verde", "Côte d'Ivoire", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Liberia", "Mali", "Mauritania", "Niger", "Nigeria", "Senegal", "Sierra Leone", "Togo", "Algeria", "Egypt", "Libya", "Morocco", "Tunisia"), dt)
+
+Middle_East = get_population(c("Bahrain", "Iran (Islamic Republic of)", "Iraq", "Israel", "Jordan", "Kuwait", "Lebanon", "Oman", "Qatar", "Saudi Arabia", "Syrian Arab Republic", "Türkiye", "United Arab Emirates", "Yemen"),dt)
+
+China = get_population(c("China", "China, Hong Kong SAR", "China, Macao SAR"), dt)
+
+EA_without_CN = get_population(c("China, Taiwan Province of China", "Mongolia", "Republic of Korea", "Japan", "Dem. People's Republic of Korea"), dt)
+
+Indian_subcon = get_population(c("Afghanistan", "Bangladesh", "Bhutan", "India", "Maldives", "Nepal", "Pakistan", "Sri Lanka"), dt)
+
+SA_without_India = get_population(c("Brunei Darussalam", "Cambodia","Indonesia", "Lao People's Democratic Republic", "Malaysia","Myanmar", "Philippines", "Singapore", "Thailand", "Timor-Leste", "Viet Nam"), dt)
+
+AusNZ = get_population(c("Australia", "New Zealand"), dt)
+
+Other = get_population(c("Kazakhstan", "Kyrgyzstan", "Tajikistan", "Turkmenistan", "Uzbekistan", "Argentina", "Bolivia (Plurinational State of)", "Brazil", "Chile", "Colombia", "Ecuador", "French Guiana", "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela (Bolivarian Republic of)", "Belize", "Costa Rica", "El Salvador", "Guatemala", "Honduras", "Nicaragua", "Panama" , "Aruba", "Curaçao", "Sint Maarten (Dutch part)", "Antigua and Barbuda", "Bahamas", "Barbados", "British Virgin Islands", "Cuba", "Dominica", "Dominican Republic", "Grenada", "Guadeloupe", "Haiti", "Jamaica", "Martinique", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Trinidad and Tobago", "Fiji", "New Caledonia", "Papua New Guinea", "Vanuatu", "Guam", "Palau","Tonga", "American Samoa", "Samoa"), dt)
+
+```
+
+```{r}
+dt_population <- data.frame(
+  Geography = c('US', 'UK', 'North America without US', 'Europe without UK', 'Africa', 'Middle East', 'China', 'East Asia without China', 'Indian subcontinent', 'South Asia without the Indian subcontinent', 'Aus-NZ', 'Other'), 
+  Population = c(US,UK,NA_without_US,EU_without_UK,Africa,Middle_East,China,EA_without_CN,Indian_subcon,SA_without_India,AusNZ,Other)
+)
+```
+
+```{r}
+library(writexl)
+write_xlsx(dt_population, "dt_population.xlsx")
+```
