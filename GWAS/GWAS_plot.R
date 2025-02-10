@@ -173,6 +173,34 @@ my_vals3 <- my_vals2 %>%
   group_by(DATE) %>%
   mutate(pop_frac=fill_gap/sum(fill_gap))
 
+##### Calculate proportions
+library(dplyr)
+
+target_date <- as.Date("2024-10-03") 
+target_category <- "Multiple"
+
+category_fraction <- my_vals2 %>%
+  filter(DATE == target_date) %>%
+  group_by(DATE) %>%
+  mutate(total_fill_gap = sum(fill_gap, na.rm = TRUE)) %>%
+  filter(category2 == target_category) %>%
+  summarise(proportion = fill_gap / total_fill_gap)
+
+print(category_fraction)
+
+specific_pop_frac <- my_vals3 %>%
+  filter(DATE == target_date & category2 == target_category) %>%
+  select(DATE, category2, pop_frac)
+
+print(specific_pop_frac)
+
+proportions_at_date <- my_vals3 %>%
+  filter(DATE == target_date) %>%
+  select(category2, pop_frac)
+
+print(proportions_at_date)
+#####
+
 p2 <- ggplot(my_vals2, aes(x=DATE, y=fill_gap/1e6, fill=category2, color=category2)) +
   geom_area(position='stack') +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
@@ -218,6 +246,11 @@ populationAncestries <-
     ),
     world = c(1656115405, 2759205919, 745083824, 581482157, 1243009512, 663466072, 46088716)
   )
+
+#### Proportions for each category
+rbind(populationAncestries$pop,
+      round(populationAncestries$world/sum(populationAncestries$world), 4))
+####
 
 populationAncestries <- populationAncestries %>%
   mutate(total_world=cumsum(world),
