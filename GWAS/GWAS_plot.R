@@ -97,8 +97,9 @@ anc_merge_dupl <- anc_merge %>%
          REPLICATION.SAMPLE.DESCRIPTION, STAGE, NUMBER.OF.INDIVDUALS, BROAD.ANCESTRAL.CATEGORY, category2) %>%
   distinct(PUBMEDID, STAGE, category2, NUMBER.OF.INDIVDUALS, .keep_all = TRUE)
 
-## Case 2: Specific PUBMEDID with large numbers of duplicate-counts
-target_pubmedids <- c(30104761, 32888493, 34594039, 34662886)
+# Case 2: Specific PUBMEDID with large numbers of duplicate-counts
+## One ancestry category for 30104761 and 34662886
+target_pubmedids <- c(30104761, 34662886)
 extract_control_size <- function(description) {
   description <- gsub(",", "", description)
   match_controls <- str_extract(description, "\\d+(?=\\s*[^\\d]*controls)")
@@ -114,7 +115,7 @@ extract_control_size <- function(description) {
   }
 }
 anc_merge_dupl <- anc_merge_dupl %>%
-  mutate(control_size_initial = 
+  mutate(control_size_initial =
            ifelse(PUBMEDID %in% target_pubmedids & STAGE == "initial",
                   sapply(INITIAL.SAMPLE.DESCRIPTION, extract_control_size), NA),
          control_size_replication =
@@ -123,16 +124,107 @@ anc_merge_dupl <- anc_merge_dupl %>%
   ) %>%
   group_by(PUBMEDID) %>%
   mutate(
-    max_control_size = ifelse(PUBMEDID %in% target_pubmedids, 
+    control_size_row = ifelse(PUBMEDID %in% target_pubmedids, 
                               pmax(control_size_initial, control_size_replication, na.rm = TRUE), NA),
-    adjusted_individuals = ifelse(!is.na(max_control_size), 
-                                  pmax(NUMBER.OF.INDIVDUALS - max_control_size, 0), NUMBER.OF.INDIVDUALS)
+    adjusted_individuals = ifelse(!is.na(control_size_row), 
+                                  pmax(NUMBER.OF.INDIVDUALS - control_size_row, 0), NUMBER.OF.INDIVDUALS),
+    is_last_row = row_number() == n(),
+    max_control_size = ifelse(PUBMEDID %in% target_pubmedids, max(control_size_row, na.rm = TRUE), NA),
+  ) %>%
+  mutate(
+    adjusted_individuals = ifelse(is_last_row & !is.na(control_size_row), 
+                                  adjusted_individuals + max_control_size, adjusted_individuals)
   ) %>%
   ungroup() %>%
   mutate(
     NUMBER.OF.INDIVDUALS = ifelse(PUBMEDID %in% target_pubmedids, adjusted_individuals, NUMBER.OF.INDIVDUALS)
   )
 
+## Multiple ancestry group for 34888493 and no specification for case and control
+# Define target PUBMEDID
+target_pubmedid <- 32888493
+
+# Define ancestry categories
+target_ancestries <- c(
+  "East Asian",
+  "Hispanic or Latin American",
+  "South Asian",
+  "African American or Afro-Caribbean and African",
+  "European"
+)
+
+# Remove rows with the combined category
+anc_merge_dupl <- anc_merge_dupl %>%
+  filter(!(
+    PUBMEDID == target_pubmedid &
+      str_detect(
+        INITIAL.SAMPLE.DESCRIPTION,
+        "African American or Afro-Caribbean, African ancestry, European ancestry, East Asian ancestry, Hispanic or Latin American and South Asian ancestry individuals"
+      )
+  ))
+
+# Process remaining rows
+anc_merge_dupl <- anc_merge_dupl %>%
+  mutate(adjusted_individuals = ifelse(PUBMEDID == target_pubmedid, 
+                                  0, 
+                                  NUMBER.OF.INDIVDUALS)
+  ) %>%
+  group_by(PUBMEDID, BROAD.ANCESTRAL.CATEGORY) %>%
+  mutate(
+    is_last_row = row_number() == n(),
+    max_individuals = max(NUMBER.OF.INDIVDUALS, na.rm = TRUE)
+  ) %>%
+  mutate(
+    adjusted_individuals = ifelse(is_last_row & PUBMEDID == target_pubmedid, 
+                                  max_individuals, adjusted_individuals)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    NUMBER.OF.INDIVDUALS = ifelse(PUBMEDID == target_pubmedid, adjusted_individuals, NUMBER.OF.INDIVDUALS)
+  )
+
+## Multiple ancestry categories and multiple types of description for 34594039
+# Define the target PUBMEDID
+target_pubmedid <- 34594039
+
+# Define relevant ancestry categories
+target_ancestries <- c("European", "East Asian")
+
+# Process dataset
+anc_merge_dupl <- anc_merge_dupl %>%
+  # Remove case/control rows (Keep only "individuals" rows)
+  filter(!(PUBMEDID == target_pubmedid & 
+             grepl("cases|controls", INITIAL.SAMPLE.DESCRIPTION, ignore.case = TRUE))) %>%
+  
+  # Set adjusted_individuals to 0 for all target PUBMEDID rows initially
+  mutate(
+    adjusted_individuals = ifelse(PUBMEDID == target_pubmedid, 0, NUMBER.OF.INDIVDUALS)
+  ) %>%
+  
+  # Group by PUBMEDID and ancestry category to process each ancestry separately
+  group_by(PUBMEDID, BROAD.ANCESTRAL.CATEGORY) %>%
+  
+  # Identify last row for each ancestry category
+  mutate(
+    is_last_row = row_number() == n(),
+    max_individuals = max(NUMBER.OF.INDIVDUALS, na.rm = TRUE) # Get max individuals for the ancestry category
+  ) %>%
+  
+  # Assign max individual count to the last row of each ancestry
+  mutate(
+    adjusted_individuals = ifelse(is_last_row & PUBMEDID == target_pubmedid, 
+                                  max_individuals, adjusted_individuals)
+  ) %>%
+  
+  ungroup() %>%
+  
+  # Assign final values
+  mutate(
+    NUMBER.OF.INDIVDUALS = ifelse(PUBMEDID == target_pubmedid, adjusted_individuals, NUMBER.OF.INDIVDUALS)
+  )
+
+
+## Cleaned Dataset
 gwas_pop_date_agg <- 
   anc_merge_dupl %>%
   select(STUDY.ACCESSION, PUBMEDID, FIRST.AUTHOR, DATE, STAGE,
@@ -176,8 +268,8 @@ my_vals3 <- my_vals2 %>%
 ##### Calculate proportions
 library(dplyr)
 
-target_date <- as.Date("2024-10-03") 
-target_category <- "Multiple"
+target_date <- as.Date("2021-07-30") 
+target_category <- "European"
 
 category_fraction <- my_vals2 %>%
   filter(DATE == target_date) %>%
@@ -282,8 +374,8 @@ p_global2 <- p_global +
 p_gwas_global <- plot_grid(p2, p_global, align = "h", rel_widths = c(0.85,0.15))
 p_gwas_global2 <- plot_grid(p3, p_global2, align = "h", rel_widths = c(0.85,0.15))
 p_agg <- ggdraw() +
-  draw_plot(p_gwas_global, 0, 0.3, 1, 0.7) +
-  draw_plot(p_gwas_global2, 0, 0.05, 1, 0.35)
+  draw_plot(p_gwas_global, 0, 0.3, 1, 0.68) +
+  draw_plot(p_gwas_global2, 0, 0, 1, 0.35)
 p_agg
-save_plot('gwas.pdf', p_agg, base_width=14, base_height=10)
-
+# save_plot('gwas.pdf', p_agg, base_width=14, base_height=10)
+# ggsave("gwas.png", plot = p_agg, width = 14, height = 10, dpi = 800)
