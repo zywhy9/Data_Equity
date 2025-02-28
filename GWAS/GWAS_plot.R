@@ -44,15 +44,24 @@ gwas_easy <- gwas[!grepl(', ', gwas$BROAD.ANCESTRAL.CATEGORY) & gwas$BROAD.ANCES
 mideast <- gwas[gwas$BROAD.ANCESTRAL.CATEGORY=='Greater Middle Eastern (Middle Eastern, North African or Persian)',]
 
 africa <- gwas[gwas$BROAD.ANCESTRAL.CATEGORY %in% c('Sub-Saharan African, African American or Afro-Caribbean',
-                                                    'Sub-Saharan African, African unspecified'),]
+                                                    'Sub-Saharan African, African unspecified',
+                                                    'African American or Afro-Caribbean, African unspecified'),]
 africa$BROAD.ANCESTRAL.CATEGORY <- 'African unspecified'
 
 asia <- 
-  gwas[gwas$BROAD.ANCESTRAL.CATEGORY %in% c('East Asian, Asian unspecified', 'South Asian, East Asian ',
+  gwas[gwas$BROAD.ANCESTRAL.CATEGORY %in% c('East Asian, Asian unspecified', 
+                                            'East Asian, South Asian',
+                                            'East Asian, South Asian, South East Asian',
+                                            'East Asian, South East Asian, South Asian, Asian unspecified',
+                                            'South Asian, East Asian',
                                             'South Asian, South East Asian',
                                             'South Asian, South East Asian, East Asian',
                                             'South East Asian, East Asian',
-                                            'South East Asian, South Asian, East Asian'),]
+                                            'South East Asian, South Asian, East Asian',
+                                            'South Asian, South East Asian, East Asian, Asian unspecified',
+                                            'South Asian, Central Asian',
+                                            'Asian unspecified, East Asian',
+                                            'Central Asian, South Asian'),]
 asia$BROAD.ANCESTRAL.CATEGORY <- 'Asian unspecified'
 
 nr <- gwas[gwas$BROAD.ANCESTRAL.CATEGORY=='NR',]
@@ -61,12 +70,21 @@ multiple <-
   gwas[grepl(', ', gwas$BROAD.ANCESTRAL.CATEGORY) & gwas$BROAD.ANCESTRAL.CATEGORY!='NR' &
          gwas$BROAD.ANCESTRAL.CATEGORY!='Greater Middle Eastern (Middle Eastern, North African or Persian)' &
          !gwas$BROAD.ANCESTRAL.CATEGORY %in% c('Sub-Saharan African, African American or Afro-Caribbean',
-                                               'Sub-Saharan African, African unspecified') &
-         !gwas$BROAD.ANCESTRAL.CATEGORY %in% c('East Asian, Asian unspecified', 'South Asian, East Asian ',
+                                               'Sub-Saharan African, African unspecified',
+                                               'African American or Afro-Caribbean, African unspecified') &
+         !gwas$BROAD.ANCESTRAL.CATEGORY %in% c('East Asian, Asian unspecified', 
+                                               'East Asian, South Asian',
+                                               'East Asian, South Asian, South East Asian',
+                                               'East Asian, South East Asian, South Asian, Asian unspecified',
+                                               'South Asian, East Asian',
                                                'South Asian, South East Asian',
                                                'South Asian, South East Asian, East Asian',
                                                'South East Asian, East Asian',
-                                               'South East Asian, South Asian, East Asian') &
+                                               'South East Asian, South Asian, East Asian',
+                                               'South Asian, South East Asian, East Asian, Asian unspecified',
+                                               'South Asian, Central Asian',
+                                               'Asian unspecified, East Asian',
+                                               'Central Asian, South Asian') &
          gwas$BROAD.ANCESTRAL.CATEGORY!='NR',]
 
 multiple$BROAD.ANCESTRAL.CATEGORY <- 'Multiple'
@@ -80,7 +98,7 @@ anc_categories <-
                         'Non-EURASN', 'NR', rep('Non-EURASN', 3), rep('ASN', 2),'Non-EURASN'),
              category2=c('Oceanic', rep('African', 2), rep('South Asian/Other Asian', 2),
                          'East Asian', 'European', 'Greater Middle Eastern', 'Hispanic/Latino', 'Multiple',
-                         'Hispanic/Latino', 'Not Reported', 'Oceanic', rep('Other', 2), 
+                         'Other', 'Not Reported', 'Oceanic', rep('Other', 2), 
                          rep('South Asian/Other Asian', 2), 'African'))
 
 # Merge the categories with the original dataset
@@ -268,8 +286,8 @@ my_vals3 <- my_vals2 %>%
 ##### Calculate proportions
 library(dplyr)
 
-target_date <- as.Date("2021-07-30") 
-target_category <- "European"
+target_date <- as.Date("2024-10-03") 
+target_category <- "East Asian"
 
 category_fraction <- my_vals2 %>%
   filter(DATE == target_date) %>%
@@ -296,8 +314,8 @@ print(proportions_at_date)
 p2 <- ggplot(my_vals2, aes(x=DATE, y=fill_gap/1e6, fill=category2, color=category2)) +
   geom_area(position='stack') +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
-  scale_fill_manual(values=color_vec, name='Population') +
-  scale_color_manual(values=color_vec, name='Population') +
+  scale_fill_manual(values=color_vec, name='Ancestry Category') +
+  scale_color_manual(values=color_vec, name='Ancestry Category') +
   labs(x='', y='Individuals in GWAS (millions)') +
   theme_classic() +
   theme(axis.text = element_text(color='black'),
@@ -311,9 +329,9 @@ p2 <- ggplot(my_vals2, aes(x=DATE, y=fill_gap/1e6, fill=category2, color=categor
 p3 <- ggplot(my_vals3, aes(x=DATE, y=pop_frac, fill=category2, color=category2)) +
   geom_area(position='stack') +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y", position='top') +
-  scale_fill_manual(values=color_vec, name='Population') +
-  scale_color_manual(values=color_vec, name='Population') +
-  labs(x='', y='Fraction') +
+  scale_fill_manual(values=color_vec, name='Ancestry Category') +
+  scale_color_manual(values=color_vec, name='Ancestry Category') +
+  labs(x='', y='Proportion') +
   theme_classic() +
   guides(fill=F, color=F) +
   theme(axis.text = element_text(color='black'),
@@ -338,6 +356,7 @@ populationAncestries <-
     ),
     world = c(1656115405, 2759205919, 745083824, 581482157, 1243009512, 663466072, 46088716)
   )
+populationAncestries$proportion <- populationAncestries$world/8161972572
 
 #### Proportions for each category
 rbind(populationAncestries$pop,
@@ -378,4 +397,4 @@ p_agg <- ggdraw() +
   draw_plot(p_gwas_global2, 0, 0, 1, 0.35)
 p_agg
 # save_plot('gwas.pdf', p_agg, base_width=14, base_height=10)
-# ggsave("gwas.png", plot = p_agg, width = 14, height = 10, dpi = 800)
+ggsave("gwas.png", plot = p_agg, width = 14, height = 10, dpi = 800)
